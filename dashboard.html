@@ -1,0 +1,304 @@
+<!-- dashboard.html -->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dashboard Inventaris TKJ</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- SheetJS CDN untuk export XLSX -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+<script>
+  
+  // guard sederhana: jika belum login -> kembali ke index
+  (function(){
+    const role = localStorage.getItem('userRole');
+    if (!role) { location.href = 'index.html'; }
+  })();
+</script>
+
+  <div class="container">
+    <h1>Dashboard Inventaris Peralatan TKJ</h1>
+    <button class="logout" onclick="logout()">Logout</button>
+
+    <!-- Statistik ringkas -->
+    <div class="stats" id="admin-stats">
+      <div class="box">Total Barang: <span id="total">0</span></div>
+      <div class="box">Baik: <span id="baik">0</span></div>
+      <div class="box">Rusak: <span id="rusak">0</span></div>
+      <div class="box">Dipinjam: <span id="pinjam">0</span></div>
+    </div>
+
+    <!-- Form tambah / edit (hanya admin) -->
+    <div class="form-container" id="admin-form">
+      <h2>Tambah / Edit Peralatan</h2>
+      <form id="form">
+        <!-- Tambahkan hidden id untuk edit -->
+        <input type="hidden" id="form-id" />
+        <input type="text" id="form-nisn" placeholder="NISN (opsional)" />
+        <input type="text" id="form-nama" placeholder="Nama Peralatan" required />
+        <input type="text" id="form-kode" placeholder="Kode / Serial" />
+        <input type="number" id="form-jumlah" placeholder="Jumlah" required min="1" />
+
+        <!-- Scan QR dipindahkan ke bawah Jumlah -->
+        <div style="margin:10px 0;">
+          <button type="button" id="admin-scan-btn" onclick="window.location.href='qr-scanner.html'">Scan QR</button>
+        </div>
+
+        <!-- Status tetap setelah tombol scan -->
+        <select id="form-status">
+          <option value="Baik">Dipinjam</option>
+          <option value="Rusak">Rusak</option>
+        </select>
+
+        <!-- FOTO BARANG DIHAPUS (sesuai permintaan) -->
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit">Simpan</button>
+          <button type="button" onclick="resetForm()">Batal</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="buttons-row" id="admin-buttons">
+      <button onclick="exportCSV()" class="excel-btn">Export CSV</button>
+      <button onclick="exportXLSX()" class="excel-btn">Export XLSX</button>
+      <button id="history-btn" onclick="window.location.href='history.html'" class="excel-btn">Riwayat Peminjaman</button>
+      <!-- tombol Scan QR dihapus sesuai permintaan -->
+    </div>
+
+    <!-- FORM KHUSUS USER: buat permintaan pinjam (hanya untuk role 'user') -->
+    <div id="borrow-container" class="form-container" style="display:none;margin-bottom:12px">
+      <h2>Formulir Permintaan Pinjam</h2>
+      <form id="borrow-form">
+        <input type="text" id="pinjam-nama" placeholder="Nama Barang / Deskripsi" required />
+        <input type="text" id="pinjam-kode" placeholder="Kode / Serial (opsional)" />
+        <input type="number" id="pinjam-jumlah" placeholder="Jumlah" required min="1" />
+        <input type="text" id="pinjam-alasan" placeholder="Alasan / Lokasi pemakaian" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button type="submit">Kirim Permintaan</button>
+          <button type="button" onclick="document.getElementById('borrow-form').reset()">Batal</button>
+          <!-- tombol scan khusus user -->
+          <button type="button" id="user-scan-btn" onclick="window.location.href='qr-scanner.html'">Scan QR</button>
+        </div>
+      </form>
+      <p class="note">Permintaan Anda akan tersimpan dan dapat diverifikasi oleh admin.</p>
+    </div>
+
+    <!-- Tabel inventaris (disembunyikan untuk user) -->
+    <h2 id="table-title">Daftar Inventaris</h2>
+    <div class="table-container" id="inventory-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Foto + QR</th>
+            <th>NISN</th>
+            <th>Nama</th>
+            <th>Kode</th>
+            <th>Jumlah</th>
+            <th>Status</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="tabel-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Notifikasi (harus diload sebelum script utama karena script utama memanggil fungsi notif) -->
+  <script src="notif.js"></script>
+  <script src="excel.js"></script>
+  <script src="ui-anim.js"></script>
+  <script src="script.js"></script>
+
+  <!-- Role based UI -->
+  <script>
+    (function(){
+      const role = localStorage.getItem('userRole');
+      const username = localStorage.getItem('username') || 'guest';
+      if (!role) { location.href = 'index.html'; return; }
+
+      // default: hide user-only UI
+      document.getElementById('borrow-container').style.display = 'none';
+
+      if (role === 'user') {
+        // Sembunyikan elemen admin
+        const adminForm = document.getElementById('admin-form');
+        const adminStats = document.getElementById('admin-stats');
+        const adminButtons = document.getElementById('admin-buttons');
+        const inventory = document.getElementById('inventory-table');
+        const tableTitle = document.getElementById('table-title');
+
+        if (adminForm) adminForm.style.display = 'none';
+        if (adminStats) adminStats.style.display = 'none';
+        if (adminButtons) adminButtons.style.display = 'none';
+        if (inventory) inventory.style.display = 'none';
+        if (tableTitle) tableTitle.style.display = 'none';
+
+        // Tampilkan form pinjam untuk user
+        document.getElementById('borrow-container').style.display = 'block';
+      } else {
+        // admin sees everything
+        document.getElementById('borrow-container').style.display = 'none';
+      }
+
+      // Jika ada hasil scan terakhir, isi form pinjam otomatis (kemudian hapus)
+      const lastScan = localStorage.getItem('lastScan');
+      if (lastScan && document.getElementById('pinjam-nama')) {
+        try {
+          // Asumsi: QR berisi JSON atau teks "nama|kode"
+          let parsed = lastScan;
+          try { parsed = JSON.parse(lastScan); } catch(e){ /* not json */ }
+          if (typeof parsed === 'object') {
+            if (parsed.nama) document.getElementById('pinjam-nama').value = parsed.nama;
+            if (parsed.kode) document.getElementById('pinjam-kode').value = parsed.kode;
+          } else if (typeof parsed === 'string') {
+            // format: "nama|kode" atau plain kode
+            if (parsed.includes('|')) {
+              const parts = parsed.split('|');
+              document.getElementById('pinjam-nama').value = parts[0] || '';
+              document.getElementById('pinjam-kode').value = parts[1] || '';
+            } else {
+              // isi kode jika string singkat, atau nama jika lebih deskriptif
+              if (parsed.length <= 8) document.getElementById('pinjam-kode').value = parsed;
+              else document.getElementById('pinjam-nama').value = parsed;
+            }
+          }
+        } catch(err){ console.warn('prefill error', err); }
+        // hapus setelah dipakai
+        localStorage.removeItem('lastScan');
+      }
+
+      // handle pengiriman permintaan pinjam (disimpan lokal sebagai demo)
+      const borrowForm = document.getElementById('borrow-form');
+      if (borrowForm) {
+        borrowForm.addEventListener('submit', function(e){
+          e.preventDefault();
+          const nama = document.getElementById('pinjam-nama').value.trim();
+          const kode = document.getElementById('pinjam-kode').value.trim();
+          const jumlah = parseInt(document.getElementById('pinjam-jumlah').value,10) || 1;
+          const alasan = document.getElementById('pinjam-alasan').value.trim();
+
+          const req = {
+            id: 'req_' + Date.now(),
+            user: username,
+            nama, kode, jumlah, alasan,
+            status: 'pending',
+            createdAt: new Date().toISOString()
+          };
+
+          const list = JSON.parse(localStorage.getItem('borrow_requests') || '[]');
+          list.push(req);
+          localStorage.setItem('borrow_requests', JSON.stringify(list));
+
+          alert('Permintaan pinjam terkirim. Tunggu verifikasi oleh admin.');
+          borrowForm.reset();
+        });
+      }
+    })();
+  </script>
+  <script>
+(function(){
+  const form = document.getElementById('form');
+  if (!form) return;
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+
+    // Ambil nilai dari input (sesuaikan id jika berbeda)
+    const idEl = document.getElementById('form-id'); // optional, untuk edit
+    const nisn = document.getElementById('form-nisn')?.value.trim() || '';
+    const nama = document.getElementById('form-nama')?.value.trim() || '';
+    const kode = document.getElementById('form-kode')?.value.trim() || '';
+    const jumlah = parseInt(document.getElementById('form-jumlah')?.value, 10) || 1;
+    const status = document.getElementById('form-status')?.value || 'Baik';
+    const id = idEl?.value || 'item_' + Date.now();
+
+    if (!nama) { alert('Nama peralatan harus diisi.'); return; }
+
+    // Simpan ke localStorage (key: items) — struktur array objek
+    const items = JSON.parse(localStorage.getItem('items') || '[]');
+
+    const existingIndex = items.findIndex(it => it.id === id);
+    const item = { id, nisn, nama, kode, jumlah, status, updatedAt: new Date().toISOString() };
+
+    if (existingIndex >= 0) {
+      items[existingIndex] = item;
+    } else {
+      items.push(item);
+    }
+
+    localStorage.setItem('items', JSON.stringify(items));
+
+    // Reset form dan update tampilan
+    resetForm();
+
+    // Jika ada fungsi tampilkanData/tampilData di script lain, panggil; kalau tidak reload agar data muncul
+    if (typeof tampilkanData === 'function') {
+      try { tampilkanData(); } catch(e){ location.reload(); }
+    } else if (typeof renderInventory === 'function') {
+      try { renderInventory(items); } catch(e){ location.reload(); }
+    } else {
+      location.reload();
+    }
+  });
+
+  // Expose resetForm agar tombol Batal/JS lain bisa pakai
+  window.resetForm = function(){
+    const ids = ['form-id','form-nisn','form-nama','form-kode','form-jumlah','form-status'];
+    ids.forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
+    const statusEl = document.getElementById('form-status');
+    if (statusEl) statusEl.value = 'Baik';
+  };
+})();
+  </script>
+  <script>
+  function renderInventory() {
+    const items = JSON.parse(localStorage.getItem('items') || '[]');
+    const tableBody = document.getElementById('tabel-body');
+    tableBody.innerHTML = ''; // Kosongkan tabel sebelum merender ulang
+
+    items.forEach(item => {
+      const row = document.createElement('tr');
+      row.innerHTML = `
+        <td><!-- Foto + QR --></td>
+        <td>${item.nisn}</td>
+        <td>${item.nama}</td>
+        <td>${item.kode}</td>
+        <td>${item.jumlah}</td>
+        <td>${item.status}</td>
+        <td>
+          <button onclick="editItem('${item.id}')">Edit</button>
+          <button onclick="deleteItem('${item.id}')">Hapus</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
+
+  function editItem(id) {
+    const items = JSON.parse(localStorage.getItem('items') || '[]');
+    const item = items.find(it => it.id === id);
+    if (item) {
+      document.getElementById('form-id').value = item.id;
+      document.getElementById('form-nisn').value = item.nisn;
+      document.getElementById('form-nama').value = item.nama;
+      document.getElementById('form-kode').value = item.kode;
+      document.getElementById('form-jumlah').value = item.jumlah;
+      document.getElementById('form-status').value = item.status;
+    }
+  }
+
+  function deleteItem(id) {
+    let items = JSON.parse(localStorage.getItem('items') || '[]');
+    items = items.filter(it => it.id !== id);
+    localStorage.setItem('items', JSON.stringify(items));
+    renderInventory(); // Render ulang tabel setelah menghapus
+  }
+
+  // Panggil renderInventory saat halaman dimuat
+  document.addEventListener('DOMContentLoaded', renderInventory);
+</script>
+</body>
+</html>
