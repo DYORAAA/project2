@@ -53,7 +53,7 @@
           <option value="Rusak">Rusak</option>
         </select>
 
-        <!-- FOTO BARANG DIHAPUS (sesuai permintaan) -->
+        <!-- FOTO: dihapus sementara (versi sebelum fitur paste-image) -->
         <div style="display:flex;gap:8px;margin-top:8px">
           <button type="submit">Simpan</button>
           <button type="button" onclick="resetForm()">Batal</button>
@@ -213,7 +213,7 @@
     const kode = document.getElementById('form-kode')?.value.trim() || '';
     const jumlah = parseInt(document.getElementById('form-jumlah')?.value, 10) || 1;
     const status = document.getElementById('form-status')?.value || 'Baik';
-    const id = idEl?.value || 'item_' + Date.now();
+  const id = idEl?.value || 'item_' + Date.now();
 
     if (!nama) { alert('Nama peralatan harus diisi.'); return; }
 
@@ -221,7 +221,11 @@
     const items = JSON.parse(localStorage.getItem('items') || '[]');
 
     const existingIndex = items.findIndex(it => it.id === id);
-    const item = { id, nisn, nama, kode, jumlah, status, updatedAt: new Date().toISOString() };
+  // include pasted images if any
+  const foto1 = document.getElementById('form-foto1')?.value || '';
+  const foto2 = document.getElementById('form-foto2')?.value || '';
+  const item = { id, nisn, nama, kode, jumlah, status, foto1, foto2, updatedAt: new Date().toISOString() };
+
 
     if (existingIndex >= 0) {
       items[existingIndex] = item;
@@ -250,6 +254,7 @@
     ids.forEach(i => { const el = document.getElementById(i); if (el) el.value = ''; });
     const statusEl = document.getElementById('form-status');
     if (statusEl) statusEl.value = 'Baik';
+    // versi sebelum paste-image: tidak ada preview/foto yang disimpan di form
   };
 })();
   </script>
@@ -262,7 +267,7 @@
     items.forEach(item => {
       const row = document.createElement('tr');
       row.innerHTML = `
-        <td><!-- Foto + QR --></td>
+        <td style="text-align:center;">-</td>
         <td>${item.nisn}</td>
         <td>${item.nama}</td>
         <td>${item.kode}</td>
@@ -280,7 +285,7 @@
   function editItem(id) {
     const items = JSON.parse(localStorage.getItem('items') || '[]');
     const item = items.find(it => it.id === id);
-    if (item) {
+      if (item) {
       document.getElementById('form-id').value = item.id;
       document.getElementById('form-nisn').value = item.nisn;
       document.getElementById('form-nama').value = item.nama;
@@ -299,6 +304,8 @@
 
   // Panggil renderInventory saat halaman dimuat
   document.addEventListener('DOMContentLoaded', renderInventory);
+
+  // fitur paste-image dihapus pada revert ini (tidak ada listener)
 </script>
 </body>
 </html>

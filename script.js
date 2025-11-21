@@ -15,9 +15,6 @@ function logout() {
 const LS_KEY = 'inventarisTKJ';
 let data = JSON.parse(localStorage.getItem(LS_KEY)) || [];
 
-// key untuk menyimpan riwayat peminjaman
-const HISTORY_KEY = 'loanHistory';
-
 // simpan ke localStorage
 function simpanLocal() {
   localStorage.setItem(LS_KEY, JSON.stringify(data));
@@ -125,12 +122,16 @@ document.getElementById('form')?.addEventListener('submit', async function(e) {
   const form = document.getElementById('form');
   const editIndex = form.getAttribute('data-edit-index');
 
-  if (editIndex !== null) {
-    data[Number(editIndex)] = barang;
+    if (editIndex !== null) {
+    const idx = Number(editIndex);
+    const prev = data[idx];
+    data[idx] = barang;
     form.removeAttribute('data-edit-index');
+    // versi sebelum perubahan: tidak mencatat riwayat otomatis di sini
   } else {
     // push baru
     data.push(barang);
+    // versi sebelum perubahan: tidak mencatat riwayat otomatis di sini
   }
 
   simpanLocal();
@@ -141,7 +142,9 @@ document.getElementById('form')?.addEventListener('submit', async function(e) {
 /* ---------- HAPUS ---------- */
 function hapusData(index) {
   if (!confirm('Hapus item ini?')) return;
+  const item = data[index];
   data.splice(index, 1);
+  // versi sebelum perubahan: tidak mencatat riwayat otomatis di sini
   simpanLocal();
   tampilkanData();
 }
@@ -173,16 +176,7 @@ function triggerNotifPinjam(index) {
     alert('Fungsi notifikasi tidak tersedia.');
   }
 
-  // catat riwayat peminjaman
-  try {
-    if (typeof window.addHistory === 'function') {
-      window.addHistory({ type: 'pinjam', nama: item.nama, kode: item.kode, peminjam, waktu: new Date().toISOString() });
-    } else {
-      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      h.push({ type: 'pinjam', nama: item.nama, kode: item.kode, peminjam, waktu: new Date().toISOString() });
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-    }
-  } catch (e) { console.warn('Gagal menyimpan riwayat pinjam', e); }
+  // versi sebelum perubahan: tidak mencatat riwayat peminjaman otomatis
 }
 
 function triggerNotifRusak(index) {
@@ -199,16 +193,7 @@ function triggerNotifRusak(index) {
     alert('Fungsi notifikasi tidak tersedia.');
   }
 
-  // catat riwayat kerusakan
-  try {
-    if (typeof window.addHistory === 'function') {
-      window.addHistory({ type: 'rusak', nama: item.nama, kode: item.kode, keterangan, waktu: new Date().toISOString() });
-    } else {
-      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      h.push({ type: 'rusak', nama: item.nama, kode: item.kode, keterangan, waktu: new Date().toISOString() });
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-    }
-  } catch (e) { console.warn('Gagal menyimpan riwayat rusak', e); }
+  // versi sebelum perubahan: tidak mencatat riwayat kerusakan otomatis
 }
 
 // kembalikan barang yang sedang dipinjam
@@ -226,16 +211,7 @@ function kembalikanData(index) {
     window.notifKembali(item.nama, item.kode);
   }
 
-  // catat riwayat pengembalian
-  try {
-    if (typeof window.addHistory === 'function') {
-      window.addHistory({ type: 'kembali', nama: item.nama, kode: item.kode, waktu: new Date().toISOString() });
-    } else {
-      const h = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
-      h.push({ type: 'kembali', nama: item.nama, kode: item.kode, waktu: new Date().toISOString() });
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(h));
-    }
-  } catch (e) { console.warn('Gagal menyimpan riwayat kembali', e); }
+  // versi sebelum perubahan: tidak mencatat riwayat pengembalian otomatis
 }
 
 /* ---------- KONFIRMASI PINJAM BERDASARKAN KODE (untuk scanner) ---------- */
@@ -251,6 +227,7 @@ window.konfirmasiPinjamByKode = function(kode, peminjam) {
   if (typeof window.notifPinjam === 'function') {
     window.notifPinjam(data[idx].nama, peminjam, data[idx].kode);
   }
+  // versi sebelum perubahan: tidak mencatat riwayat dari scanner
 };
 
 /* ---------- ON SCAN SUCCESS (dipanggil oleh qr-scanner.html) ---------- */

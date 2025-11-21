@@ -1,27 +1,42 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>QR Scanner - Inventaris</title>
-  <link rel="stylesheet" href="style.css" />
-  <link rel="stylesheet" href="qr-scanner.css" />
+  <title>Scan QR - Inventaris TKJ</title>
+  <link rel="stylesheet" href="qr-scanner.css" /> 
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
-<body>
+<body onload="initScannerPage();">
   <div class="container">
-    <h2 style="text-align:center">Scan QR</h2>
-    <div class="scanner-wrap">
-      <div id="reader"></div>
-      <div class="actions">
-        <button id="stop-btn">Stop</button>
-        <button id="use-btn" disabled>Gunakan Hasil & Kembali</button>
-        <button id="cancel-btn">Batal</button>
+    <h1>Scan QR Barang</h1>
+    <div class="actions" style="margin-bottom:15px;">
+      <button onclick="stopQrCamera(); window.location.href='dashboard.html'" style="background-color:#dc3545;">Kembali</button>
+      
+      <div style="display:flex; align-items:center; gap:5px;">
+        <label for="cameraSelect">Kamera:</label>
+        <select id="cameraSelect" style="padding:8px; border-radius:4px; border:1px solid #ccc;"></select>
       </div>
-      <p id="scan-result" style="text-align:center;color:#222;margin-top:10px"></p>
+    </div>
+
+    <div class="scanner-wrap">
+        <div id="reader"></div>
+    </div>
+
+    <div class="scanner-wrap" style="margin-top: 20px;">
+      <h3 style="margin-top:0;">Hasil Scan</h3>
+      <p><b>Kode:</b> <span id="hasil_kode">-</span></p>
+      <p><b>Nama:</b> <span id="hasil_nama">-</span></p>
+      <p><b>Status:</b> <span id="hasil_status">-</span></p>
+      <p><b>Jumlah:</b> <span id="hasil_jumlah">-</span></p>
+      
+      <div class="actions">
+        <button onclick="confirmPinjamFromScanner()" class="aksi-btn edit">Konfirmasi Peminjaman</button>
+        <button onclick="startQrCamera(document.getElementById('cameraSelect').value)" style="background-color:#28a745;">Scan Ulang</button>
+      </div>
     </div>
   </div>
 
-  <script src="https://unpkg.com/html5-qrcode/minified/html5-qrcode.min.js"></script>
   <script src="qr-scanner.js"></script>
 </body>
 </html>
